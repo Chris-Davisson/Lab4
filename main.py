@@ -13,24 +13,27 @@ Actually, we just do ip and port in the bar like filezilla. we can also keep the
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from app import app
+from gui import gui
 
-class App:
-    friends = {}
-
-    
+class App:    
     def __init__(self, root):
         self.root = root
-        self.gui = app(self.root)
+        self.gui = gui(self.root)
+        self.port = 6000
+        self.friends = {"self": ["127.0.0.1" , self.port] }
+        self.messages = {}
 
-        app.connect = self.connect
-        app.listen = self.listen 
-        app.crypto_change = self.crypto_change 
-        app.register = self.register 
-        app.close = self.close 
-        app.DHE = self.DHE
-        app.RSA = self.RSA 
-        app.send_message = self.send_message
+
+        self.gui.connect = self.connect
+        self.gui.listen = self.listen
+        self.gui.crypto_change = self.crypto_change
+        self.gui.register = self.register
+        self.gui.close = self.close
+        self.gui.DHE = self.DHE
+        self.gui.RSA = self.RSA
+        self.gui.send_message = self.send_message
+
+        self.populate_friends()
 
         self.sock = None
         self.conn = None
@@ -39,10 +42,11 @@ class App:
 # Event listeners
 
     def listen(self):
+        
         print("listen")
 
     def connect(self):
-        print("connect")
+        self.add_to_chat("connect")
 
     def send_message(self):
         print("send")
@@ -66,6 +70,26 @@ class App:
 
     def RSA(self):
         print()
+
+    def populate_friends(self):
+        self.gui.addr_listbox.config(state=tk.NORMAL)
+        for name, (ip, port) in self.friends.items():
+            self.gui.addr_listbox.insert(tk.END, f"{name:<10} {ip}:{port}\n")
+        self.gui.addr_listbox.config(state=tk.DISABLED)
+
+    def add_to_chat(self, text, sender=None, encryption=None, debug=False):
+        line = ""
+        if sender:
+            line += f"[{sender}] "
+        if encryption:
+            line += f"({encryption}) "
+        if debug:
+            line += "[DEBUG] "
+        line += text + "\n"
+
+        self.gui.chat_display.config(state=tk.NORMAL)
+        self.gui.chat_display.insert(tk.END, line)
+        self.gui.chat_display.config(state=tk.DISABLED)
 
 if __name__== "__main__":
     root = tk.Tk()
