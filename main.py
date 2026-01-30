@@ -10,9 +10,9 @@ P1 → P2 after getting the ip and port for the other one.
 Actually, we just do ip and port in the bar like filezilla. we can also keep the list and maybe implement the register later. as its own server
 
 '''
-
+import socket
+import threading
 import tkinter as tk
-from tkinter import ttk, scrolledtext
 from gui import gui
 
 class App:    
@@ -22,7 +22,7 @@ class App:
         self.port = 6000
         self.friends = {"self": ["127.0.0.1" , self.port] }
         self.messages = {}
-
+        self.crypto = None
 
         self.gui.connect = self.connect
         self.gui.listen = self.listen
@@ -39,11 +39,30 @@ class App:
         self.conn = None
         self.running = False
 
-# Event listeners
 
-    def listen(self):
-        
-        print("listen")
+
+    def listen(self , timeout=30):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.settimeout(timeout)
+        self.sock.bind(("0.0.0.0", self.port))
+        self.sock.listen(1)
+        self.gui.log(f"Listening on port: {self.port}")
+        self.gui.disable_listen()
+
+        def accept():
+            try:
+                self.conn, addr = self.sock.accept()
+                self.running = True
+                self.root.after(0, lambda: self.gui.log(f"Connection from {addr}"))
+                self.root.after(0, lambda: self.gui.set_status(True))
+                self.receive_loop()
+            except socket.timeout:
+                self.root.after(0, lambda: self.gui.log("Listen timed out"))
+                self.root.after(0, lambda: self.gui.enable_listen())
+        threading.Thread(target=accept, daemon=True).start()
+
+
 
     def connect(self):
         self.add_to_chat("connect")

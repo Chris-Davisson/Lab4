@@ -99,3 +99,12 @@ class gui:
         tk.Button(input_frame, text="Send", command=lambda: self.send_message() if self.send_message else None).pack(side=tk.RIGHT)
 
         root.protocol("WM_DELETE_WINDOW", lambda: self.close() if self.close else None)
+
+    def log(self, txt):
+        self.chat_display.config(state=tk.NORMAL)
+        self.chat_display.insert(tk.END, txt + "\n")
+        self.chat_display.config(state=tk.DISABLED)
+        self.chat_display.see(tk.END)
+
+    def disable_listen(self):
+        self.listen_btn.config(state=tk.DISABLED)
