@@ -3,6 +3,8 @@ import threading
 import random
 import tkinter as tk
 from chat.gui import gui
+from chat.crypto import Cryptography
+import hashlib
 
 
 class App:
@@ -13,7 +15,7 @@ class App:
         self.friends = {}
         self.messages = {}
         self.crypto = None
-
+        self.status = False
         self.gui.connect = self.connect
         self.gui.listen = self.listen
         self.gui.cancel_listen = self.cancel_listen
@@ -50,6 +52,7 @@ class App:
                 self.running = True
                 self.root.after(0, lambda: self.gui.log(f"Connection from {addr}"))
                 self.root.after(0, lambda: self.gui.set_status(True))
+                self.status = True
                 self.root.after(0, lambda: self.gui.set_disconnect_mode())
                 self.receive_loop()
             except socket.timeout:
@@ -71,6 +74,7 @@ class App:
                 self.running = True
                 self.root.after(0, lambda: self.gui.log(f"Connected to {host}:{port}"))
                 self.root.after(0, lambda: self.gui.set_status(True))
+                self.status = True
                 self.root.after(0, lambda: self.gui.set_disconnect_mode())
                 self.root.after(0, lambda: self.save_address(host, port))
                 self.receive_loop()
@@ -100,6 +104,7 @@ class App:
         self.running = False
         self.root.after(0, lambda: self.gui.log("Disconnected"))
         self.root.after(0, lambda: self.gui.set_status(False))
+        self.status = False
         self.root.after(0, lambda: self.gui.set_listen_mode())
 
     def send_message(self):
@@ -127,6 +132,7 @@ class App:
             self.sock = None
         self.gui.log("Disconnected")
         self.gui.set_status(False)
+        self.status = False
         self.gui.set_listen_mode()
 
     def set_port(self):
@@ -165,8 +171,34 @@ class App:
             self.sock.close()
         self.root.destroy()
 
-    def DHE(self):
-        print()
+    #Perform the DHE key exchange
+    def DHE(self, n = 2048):
+        if not self.status:
+            self.gui.log("You have ")
+        self.gui.log("Begining DHE key exchange...")
+        p = None
+        g = None
+        if n == 2048:
+            p = Cryptography.DH_PRIME
+            g = Cryptography.DH_GENERATOR
+            self.gui.log(f"P = hard coded 2048 bit\ng = {Cryptography.DH_GENERATOR}")
+            self.gui.log("\n")
+        else:
+            p = Cryptography.generate_prime(11) # ToDo. repace 11 with your choice of bits
+            g = 2
+            self.gui.log(f"P = {p}\ng = {g}")
+            self.gui.log("\n")
+        a = Cryptography.generate_DHE_key(p)
+        public_key = Cryptography.compute_public_key(g , p , a)
+
+        self.gui.log(f"a = {a}")
+        self.gui.log("\n")
+
+
+
+
+        
+
 
     def RSA(self):
         print()

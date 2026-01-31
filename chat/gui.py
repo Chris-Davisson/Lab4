@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-
+from chat.crypto import Cryptography
 
 class gui:
     def __init__(self, root):
