@@ -1,8 +1,3 @@
-"""
-Defining the tkinter GUI
-
-"""
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 

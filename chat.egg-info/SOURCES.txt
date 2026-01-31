@@ -1,0 +1,13 @@
+control.py
+pyproject.toml
+chat/__init__.py
+chat/chat.py
+chat/crypto.py
+chat/gui.py
+chat.egg-info/PKG-INFO
+chat.egg-info/SOURCES.txt
+chat.egg-info/dependency_links.txt
+chat.egg-info/entry_points.txt
+chat.egg-info/top_level.txt
+server/__init__.py
+server/server.py

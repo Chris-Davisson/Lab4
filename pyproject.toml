@@ -12,10 +12,11 @@ authors = [{name = "Christopher Davisson" , email = "cdavisson58@ewu.edu"}]
 dependencies = [] #NONE!! Depend on noone
 
 [project.scripts]
-chat = "chat:main"
+chat = "control:main"
 
 [tool.setuptools]
-py-modules = ["chat", "crypto", "gui", "server"]
+packages = ["chat", "server"]
+py-modules = ["control"]
 
 [tool.mypy]
 ignore_missing_imports = true

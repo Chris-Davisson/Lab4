@@ -1,21 +1,8 @@
-"""
-Main entry point for the applicaiton. we are not going to over complicate this. no cli, tui, etc... no switching to node and browser or java and whatever else.
-
-ok we're gonna do this p2p with a directory. we dont want to look it up so I'm going to make the solution dead simple then improve.
-
-P1 → Register
-P2 → Register
-P1 → P2 after getting the ip and port for the other one.
-
-Actually, we just do ip and port in the bar like filezilla. we can also keep the list and maybe implement the register later. as its own server
-
-"""
-
 import socket
 import threading
 import random
 import tkinter as tk
-from gui import gui
+from chat.gui import gui
 
 
 class App:
@@ -185,7 +172,6 @@ class App:
         print()
 
     def update_self_address(self):
-        # Get local IP address
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
