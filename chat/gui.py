@@ -1,14 +1,15 @@
-'''
+"""
 Defining the tkinter GUI
 
-'''
+"""
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 
+
 class gui:
     def __init__(self, root):
-        root.title("P2P Chat")        
+        root.title("P2P Chat")
         self.connect = None
         self.listen = None
         self.cancel_listen = None
@@ -22,29 +23,37 @@ class gui:
 
         header = ttk.Frame(root)
         header.pack(fill=tk.X, padx=5, pady=5)
-        
+
         ttk.Label(header, text="Host:").pack(side=tk.LEFT)
         self.host_entry = tk.Entry(header, width=15)
         self.host_entry.insert(0, "127.0.0.1")
         self.host_entry.pack(side=tk.LEFT, padx=2)
-        
+
         tk.Label(header, text="Port:").pack(side=tk.LEFT)
         self.port_entry = tk.Entry(header, width=6)
         self.port_entry.insert(0, "9999")
         self.port_entry.pack(side=tk.LEFT, padx=2)
-        
-        self.connect_btn = ttk.Button(header, text="Connect", command=lambda: self.connect() if self.connect else None)
+
+        self.connect_btn = ttk.Button(
+            header, text="Connect", command=lambda: self.connect() if self.connect else None
+        )
         self.connect_btn.pack(side=tk.LEFT, padx=2)
 
-        self.listen_btn = ttk.Button(header, text="Listen", command=lambda: self.listen() if self.listen else None)
+        self.listen_btn = ttk.Button(
+            header, text="Listen", command=lambda: self.listen() if self.listen else None
+        )
         self.listen_btn.pack(side=tk.LEFT, padx=2)
 
-        self.DHE_btn = ttk.Button(header, text='DHE', command=lambda: self.DHE() if self.DHE else None)
-        self.DHE_btn.pack(side=tk.LEFT,padx=2)
+        self.DHE_btn = ttk.Button(
+            header, text="DHE", command=lambda: self.DHE() if self.DHE else None
+        )
+        self.DHE_btn.pack(side=tk.LEFT, padx=2)
 
-        self.RSA_btn = ttk.Button(header, text='RSA', command=lambda: self.RSA() if self.RSA else None)
-        self.RSA_btn.pack(side=tk.LEFT,padx=2)
-        
+        self.RSA_btn = ttk.Button(
+            header, text="RSA", command=lambda: self.RSA() if self.RSA else None
+        )
+        self.RSA_btn.pack(side=tk.LEFT, padx=2)
+
         style = ttk.Style()
         style.configure("Red.TLabel", foreground="red")
         style.configure("Green.TLabel", foreground="green")
@@ -78,7 +87,9 @@ class gui:
 
         self.my_port_entry = tk.Entry(port_frame, width=10)
         self.my_port_entry.pack(side=tk.LEFT, padx=5, pady=5)
-        self.set_port_btn = ttk.Button(port_frame, text="Set", command=lambda: self.set_port() if self.set_port else None)
+        self.set_port_btn = ttk.Button(
+            port_frame, text="Set", command=lambda: self.set_port() if self.set_port else None
+        )
         self.set_port_btn.pack(side=tk.LEFT, padx=5, pady=5)
         self.set_port = None
 
@@ -100,7 +111,10 @@ class gui:
 
         self.addr_combo = ttk.Combobox(addr_frame, state="readonly", width=20)
         self.addr_combo.pack(padx=5, pady=5, fill=tk.X)
-        self.addr_combo.bind("<<ComboboxSelected>>", lambda e: self.on_address_selected() if self.on_address_selected else None)
+        self.addr_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self.on_address_selected() if self.on_address_selected else None,
+        )
         self.on_address_selected = None
 
         # Shared keys section
@@ -109,7 +123,9 @@ class gui:
         keys_frame.rowconfigure(0, weight=1)
         keys_frame.columnconfigure(0, weight=1)
 
-        self.keys_display = scrolledtext.ScrolledText(keys_frame, state=tk.DISABLED, width=25, height=8)
+        self.keys_display = scrolledtext.ScrolledText(
+            keys_frame, state=tk.DISABLED, width=25, height=8
+        )
         self.keys_display.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         paned.add(left_panel, weight=1)
@@ -126,12 +142,18 @@ class gui:
         # Message input
         input_frame = tk.Frame(root)
         input_frame.pack(fill=tk.X, padx=5, pady=5)
-        
+
         self.msg_entry = tk.Entry(input_frame)
         self.msg_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.msg_entry.bind("<Return>", lambda e: self.send_message() if self.send_message else None)
+        self.msg_entry.bind(
+            "<Return>", lambda e: self.send_message() if self.send_message else None
+        )
 
-        ttk.Button(input_frame, text="Send", command=lambda: self.send_message() if self.send_message else None).pack(side=tk.RIGHT)
+        ttk.Button(
+            input_frame,
+            text="Send",
+            command=lambda: self.send_message() if self.send_message else None,
+        ).pack(side=tk.RIGHT)
 
         root.protocol("WM_DELETE_WINDOW", lambda: self.close() if self.close else None)
 
@@ -142,36 +164,22 @@ class gui:
         self.chat_display.see(tk.END)
 
     def set_listen_mode(self):
-        self.listen_btn.config(text="Listen", command=lambda: self.listen() if self.listen else None)
+        self.listen_btn.config(
+            text="Listen", command=lambda: self.listen() if self.listen else None
+        )
 
     def set_cancel_mode(self):
-        self.listen_btn.config(text="Cancel", command=lambda: self.cancel_listen() if self.cancel_listen else None)
+        self.listen_btn.config(
+            text="Cancel", command=lambda: self.cancel_listen() if self.cancel_listen else None
+        )
 
     def set_disconnect_mode(self):
-        self.listen_btn.config(text="Disconnect", command=lambda: self.disconnect() if self.disconnect else None)
+        self.listen_btn.config(
+            text="Disconnect", command=lambda: self.disconnect() if self.disconnect else None
+        )
 
     def set_status(self, connected):
         if connected:
             self.status_label.config(text="Connected", style="Green.TLabel")
         else:
             self.status_label.config(text="Disconnected", style="Red.TLabel")
-
-    def _handle_connect(self):
-        if self.on_connect:
-            self.on_connect(self.host_entry.get(), int(self.port_entry.get()))
-    
-    def _handle_listen(self):
-        if self.on_listen:
-            self.on_listen(int(self.port_entry.get()))
-    
-    def _handle_send(self):
-        if self.on_send:
-            msg = self.msg_entry.get()
-            if msg:
-                self.on_send(msg)
-                self.msg_entry.delete(0, tk.END)
-    
-    def _handle_close(self):
-        if self.on_close:
-            self.on_close()
-        self.root.destroy()

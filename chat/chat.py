@@ -1,22 +1,24 @@
-'''
+"""
 Main entry point for the applicaiton. we are not going to over complicate this. no cli, tui, etc... no switching to node and browser or java and whatever else.
 
-ok we're gonna do this p2p with a directory. we dont want to look it up so I'm going to make the solution dead simple then improve. 
+ok we're gonna do this p2p with a directory. we dont want to look it up so I'm going to make the solution dead simple then improve.
 
-P1 → Register 
+P1 → Register
 P2 → Register
-P1 → P2 after getting the ip and port for the other one. 
+P1 → P2 after getting the ip and port for the other one.
 
 Actually, we just do ip and port in the bar like filezilla. we can also keep the list and maybe implement the register later. as its own server
 
-'''
+"""
+
 import socket
 import threading
 import random
 import tkinter as tk
 from gui import gui
 
-class App:    
+
+class App:
     def __init__(self, root):
         self.root = root
         self.gui = gui(self.root)
@@ -46,8 +48,6 @@ class App:
         self.gui.my_port_entry.insert(0, str(self.port))
         self.update_self_address()
 
-
-
     def listen(self, timeout=30):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -70,8 +70,8 @@ class App:
                 self.root.after(0, lambda: self.gui.set_listen_mode())
             except OSError:
                 pass
-        threading.Thread(target=accept, daemon=True).start()
 
+        threading.Thread(target=accept, daemon=True).start()
 
     def connect(self):
         host = self.gui.host_entry.get()
@@ -95,19 +95,18 @@ class App:
     def save_address(self, ip, port):
         for name, (saved_ip, saved_port) in self.friends.items():
             if saved_ip == ip and saved_port == port:
-                return 
+                return
         self.friend_counter += 1
         name = f"Friend{self.friend_counter}"
         self.add_friend(name, ip, port)
 
-    
     def receive_loop(self):
         while self.running:
             try:
                 data = self.conn.recv(4096)
                 if not data:
                     break
-                msg = data.decode('utf-8')
+                msg = data.decode("utf-8")
                 self.root.after(0, lambda m=msg: self.gui.log(f"Friend: {m}"))
             except:
                 break
@@ -115,15 +114,15 @@ class App:
         self.root.after(0, lambda: self.gui.log("Disconnected"))
         self.root.after(0, lambda: self.gui.set_status(False))
         self.root.after(0, lambda: self.gui.set_listen_mode())
-    
+
     def send_message(self):
         msg = self.gui.msg_entry.get()
         if msg and self.conn:
-            self.conn.send(msg.encode('utf-8'))
+            self.conn.send(msg.encode("utf-8"))
             name = self.gui.name_entry.get() or "Me"
             self.gui.log(f"{name}: {msg}")
             self.gui.msg_entry.delete(0, tk.END)
-    
+
     def cancel_listen(self):
         if self.sock:
             self.sock.close()
@@ -161,7 +160,7 @@ class App:
             self.conn.close()
         if self.sock:
             self.sock.close()
-    
+
     def run(self):
         self.root.mainloop()
 
@@ -204,7 +203,7 @@ class App:
 
     def update_address_dropdown(self):
         names = list(self.friends.keys())
-        self.gui.addr_combo['values'] = names
+        self.gui.addr_combo["values"] = names
         if names and not self.gui.addr_combo.get():
             self.gui.addr_combo.set(names[0])
 
@@ -231,7 +230,12 @@ class App:
         self.gui.chat_display.insert(tk.END, line)
         self.gui.chat_display.config(state=tk.DISABLED)
 
-if __name__== "__main__":
+
+def main():
     root = tk.Tk()
     app = App(root)
     root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
