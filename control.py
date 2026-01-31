@@ -1,5 +1,6 @@
 import argparse
 
+
 def main():
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(dest="mode")
@@ -18,16 +19,20 @@ def main():
 
     if args.mode in ("server", "s"):
         from server.server import server
+
         server.run_server()
     elif args.mode in ("client", "c"):
         if args.tui:
             print("TUI mode not implemented")
         else:
             from chat.chat import main as chat_main
+
             chat_main()
     else:
         from chat.chat import main as chat_main
+
         chat_main()
+
 
 if __name__ == "__main__":
     main()
