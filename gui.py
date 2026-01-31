@@ -11,6 +11,8 @@ class gui:
         root.title("P2P Chat")        
         self.connect = None
         self.listen = None
+        self.cancel_listen = None
+        self.disconnect = None
         self.crypto_change = None
         self.register = None
         self.close = None
@@ -55,22 +57,55 @@ class gui:
 
         # Left panel (split vertically)
         left_panel = ttk.Frame(paned)
-        left_panel.rowconfigure(0, weight=1)
-        left_panel.rowconfigure(1, weight=1)
+        left_panel.rowconfigure(0, weight=0)
+        left_panel.rowconfigure(1, weight=0)
+        left_panel.rowconfigure(2, weight=0)
+        left_panel.rowconfigure(3, weight=0)
+        left_panel.rowconfigure(4, weight=1)
         left_panel.columnconfigure(0, weight=1)
+
+        # Name section
+        name_frame = ttk.LabelFrame(left_panel, text="My Name")
+        name_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+
+        self.name_entry = tk.Entry(name_frame, width=15)
+        self.name_entry.insert(0, "Me")
+        self.name_entry.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
+
+        # My Port section
+        port_frame = ttk.LabelFrame(left_panel, text="My Port")
+        port_frame.grid(row=1, column=0, sticky="ew", pady=(0, 5))
+
+        self.my_port_entry = tk.Entry(port_frame, width=10)
+        self.my_port_entry.pack(side=tk.LEFT, padx=5, pady=5)
+        self.set_port_btn = ttk.Button(port_frame, text="Set", command=lambda: self.set_port() if self.set_port else None)
+        self.set_port_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        self.set_port = None
+
+        # Relay section
+        relay_frame = ttk.LabelFrame(left_panel, text="Relay Server")
+        relay_frame.grid(row=2, column=0, sticky="ew", pady=(0, 5))
+
+        ttk.Label(relay_frame, text="Host:").pack(side=tk.LEFT, padx=(5, 2), pady=5)
+        self.relay_host_entry = tk.Entry(relay_frame, width=12)
+        self.relay_host_entry.pack(side=tk.LEFT, padx=2, pady=5)
+
+        ttk.Label(relay_frame, text="Port:").pack(side=tk.LEFT, padx=(5, 2), pady=5)
+        self.relay_port_entry = tk.Entry(relay_frame, width=6)
+        self.relay_port_entry.pack(side=tk.LEFT, padx=2, pady=5)
 
         # Saved addresses section
         addr_frame = ttk.LabelFrame(left_panel, text="Saved Addresses")
-        addr_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
-        addr_frame.rowconfigure(0, weight=1)
-        addr_frame.columnconfigure(0, weight=1)
+        addr_frame.grid(row=3, column=0, sticky="ew", pady=(0, 5))
 
-        self.addr_listbox = scrolledtext.ScrolledText(addr_frame, width=25, height=8)
-        self.addr_listbox.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.addr_combo = ttk.Combobox(addr_frame, state="readonly", width=20)
+        self.addr_combo.pack(padx=5, pady=5, fill=tk.X)
+        self.addr_combo.bind("<<ComboboxSelected>>", lambda e: self.on_address_selected() if self.on_address_selected else None)
+        self.on_address_selected = None
 
         # Shared keys section
         keys_frame = ttk.LabelFrame(left_panel, text="Shared Keys")
-        keys_frame.grid(row=1, column=0, sticky="nsew")
+        keys_frame.grid(row=4, column=0, sticky="nsew")
         keys_frame.rowconfigure(0, weight=1)
         keys_frame.columnconfigure(0, weight=1)
 
@@ -96,7 +131,7 @@ class gui:
         self.msg_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.msg_entry.bind("<Return>", lambda e: self.send_message() if self.send_message else None)
 
-        tk.Button(input_frame, text="Send", command=lambda: self.send_message() if self.send_message else None).pack(side=tk.RIGHT)
+        ttk.Button(input_frame, text="Send", command=lambda: self.send_message() if self.send_message else None).pack(side=tk.RIGHT)
 
         root.protocol("WM_DELETE_WINDOW", lambda: self.close() if self.close else None)
 
@@ -106,5 +141,37 @@ class gui:
         self.chat_display.config(state=tk.DISABLED)
         self.chat_display.see(tk.END)
 
-    def disable_listen(self):
-        self.listen_btn.config(state=tk.DISABLED)
+    def set_listen_mode(self):
+        self.listen_btn.config(text="Listen", command=lambda: self.listen() if self.listen else None)
+
+    def set_cancel_mode(self):
+        self.listen_btn.config(text="Cancel", command=lambda: self.cancel_listen() if self.cancel_listen else None)
+
+    def set_disconnect_mode(self):
+        self.listen_btn.config(text="Disconnect", command=lambda: self.disconnect() if self.disconnect else None)
+
+    def set_status(self, connected):
+        if connected:
+            self.status_label.config(text="Connected", style="Green.TLabel")
+        else:
+            self.status_label.config(text="Disconnected", style="Red.TLabel")
+
+    def _handle_connect(self):
+        if self.on_connect:
+            self.on_connect(self.host_entry.get(), int(self.port_entry.get()))
+    
+    def _handle_listen(self):
+        if self.on_listen:
+            self.on_listen(int(self.port_entry.get()))
+    
+    def _handle_send(self):
+        if self.on_send:
+            msg = self.msg_entry.get()
+            if msg:
+                self.on_send(msg)
+                self.msg_entry.delete(0, tk.END)
+    
+    def _handle_close(self):
+        if self.on_close:
+            self.on_close()
+        self.root.destroy()
