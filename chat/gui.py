@@ -1,10 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from chat.crypto import Cryptography
+import random
+
 
 class gui:
     def __init__(self, root):
         root.title("P2P Chat")
+        self.relay_port = "1234"
+        self.relay_ip = "127.0.0.1"
+
         self.connect = None
         self.listen = None
         self.cancel_listen = None
@@ -16,9 +21,13 @@ class gui:
         self.RSA = None
         self.send_message = None
         self.connect_relay = None
+        self.list_users = None
+        self.request_chat = None
+        self.show_key = None
 
         self.dhe_size = None
 
+        # =========================== Header ================================
         header = ttk.Frame(root)
         header.pack(fill=tk.X, padx=5, pady=5)
 
@@ -48,7 +57,7 @@ class gui:
         self.DHE_btn.pack(side=tk.LEFT, padx=2)
 
         self.dhe_size = ttk.Combobox(header, values=["32", "64", "2048"], width=6)
-        self.dhe_size.set("2048") # Default
+        self.dhe_size.set("2048")  # Default
         self.dhe_size.pack(side=tk.LEFT, padx=2)
 
         self.RSA_btn = ttk.Button(
@@ -62,11 +71,10 @@ class gui:
         self.status_label = ttk.Label(header, text="Disconnected", style="Red.TLabel")
         self.status_label.pack(side=tk.RIGHT)
 
-        # Main content frame with resizable panes
+        # ============================ Body ==========================
         paned = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
         paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Left panel (split vertically)
         left_panel = ttk.Frame(paned)
         left_panel.rowconfigure(0, weight=0)
         left_panel.rowconfigure(1, weight=0)
@@ -80,7 +88,7 @@ class gui:
         name_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         self.name_entry = tk.Entry(name_frame, width=15)
-        self.name_entry.insert(0, "Me")
+        self.name_entry.insert(0, self.get_random_name())
         self.name_entry.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
 
         # My Port section
@@ -101,28 +109,39 @@ class gui:
 
         ttk.Label(relay_frame, text="Host:").pack(side=tk.LEFT, padx=(5, 2), pady=5)
         self.relay_host_entry = tk.Entry(relay_frame, width=12)
+        self.relay_host_entry.insert(0, self.relay_ip)
         self.relay_host_entry.pack(side=tk.LEFT, padx=2, pady=5)
 
         ttk.Label(relay_frame, text="Port:").pack(side=tk.LEFT, padx=(5, 2), pady=5)
         self.relay_port_entry = tk.Entry(relay_frame, width=6)
+        self.relay_port_entry.insert(0, str(self.relay_port))
         self.relay_port_entry.pack(side=tk.LEFT, padx=2, pady=5)
 
         self.relay_btn = ttk.Button(
-            relay_frame, text="Relay", command=lambda: self.connect_relay() if self.connect_relay else None
+            relay_frame,
+            text="Relay",
+            command=lambda: self.connect_relay() if self.connect_relay else None,
         )
         self.relay_btn.pack(side=tk.LEFT, padx=5, pady=5)
 
-        # Saved addresses section
-        addr_frame = ttk.LabelFrame(left_panel, text="Saved Addresses")
-        addr_frame.grid(row=3, column=0, sticky="ew", pady=(0, 5))
-
-        self.addr_combo = ttk.Combobox(addr_frame, state="readonly", width=20)
-        self.addr_combo.pack(padx=5, pady=5, fill=tk.X)
-        self.addr_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.on_address_selected() if self.on_address_selected else None,
+        self.list_btn = ttk.Button(
+            relay_frame, text="List", command=lambda: self.list_users() if self.list_users else None
         )
-        self.on_address_selected = None
+        self.list_btn.pack(side=tk.LEFT, padx=2, pady=5)
+
+        # Online users section
+        users_frame = ttk.LabelFrame(left_panel, text="Online Users")
+        users_frame.grid(row=3, column=0, sticky="ew", pady=(0, 5))
+
+        self.users_combo = ttk.Combobox(users_frame, state="readonly", width=15)
+        self.users_combo.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
+
+        self.chat_btn = ttk.Button(
+            users_frame,
+            text="Chat",
+            command=lambda: self.request_chat() if self.request_chat else None,
+        )
+        self.chat_btn.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Shared keys section
         keys_frame = ttk.LabelFrame(left_panel, text="Shared Keys")
@@ -130,10 +149,10 @@ class gui:
         keys_frame.rowconfigure(0, weight=1)
         keys_frame.columnconfigure(0, weight=1)
 
-        self.keys_display = scrolledtext.ScrolledText(
-            keys_frame, state=tk.DISABLED, width=25, height=8
-        )
-        self.keys_display.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.keys_listbox = tk.Listbox(keys_frame, height=8)
+        self.keys_listbox.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.keys_listbox.bind("<Double-1>", self._on_key_click)
+        self.keys_listbox.bind("<Return>", self._on_key_click)
 
         paned.add(left_panel, weight=1)
 
@@ -190,3 +209,31 @@ class gui:
             self.status_label.config(text="Connected", style="Green.TLabel")
         else:
             self.status_label.config(text="Disconnected", style="Red.TLabel")
+
+    def update_users(self, users):
+        """Update the online users dropdown"""
+        self.users_combo["values"] = users
+        if users and not self.users_combo.get():
+            self.users_combo.set(users[0])
+
+    def add_key(self, partner, method):
+        entry = f"{partner} ({method})"
+        self.keys_listbox.insert(tk.END, entry)
+
+    def clear_keys(self):
+        self.keys_listbox.delete(0, tk.END)
+
+    def _on_key_click(self, event):
+        selection = self.keys_listbox.curselection()
+        if selection and self.show_key:
+            entry = self.keys_listbox.get(selection[0])
+            self.show_key(entry)
+
+    def get_random_name(self):
+        try:
+            with open("./chat/names.txt", "r") as file:
+                names = file.readlines()
+                random_name = random.choice(names)
+                return random_name.strip()
+        except FileNotFoundError:
+            return "Christopher"

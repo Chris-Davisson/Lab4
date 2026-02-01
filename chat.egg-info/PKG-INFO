@@ -1,6 +1,0 @@
-Metadata-Version: 2.4
-Name: chat
-Version: 1.0.0
-Summary: Christopher Davissons lab4 P2P with relay server
-Author-email: Christopher Davisson <cdavisson58@ewu.edu>
-Requires-Python: >=3.10

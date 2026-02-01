@@ -14,21 +14,21 @@ class App:
         self.root = root
         self.gui = gui(self.root)
         self.port = random.randint(10000, 65535)
-        self.friends = {}
-        self.friend_counter = 0
         self.running = False
         self.messages = {}
 
-        
         self.crypto = None
-        self.status = False        
+        self.status = False
         self.dhe_private = None
         self.dhe_p = None
         self.sock = None
         self.conn = None
         self.shared_secret = None
         self.rsa_private = None
-
+        self.chat_partner = None  # Name of current chat partner
+        self.keys = (
+            {}
+        )  # Store key details: {partner_name: {"method": "DHE"/"RSA", "shared": hex_string}}
 
         self.gui.connect = self.connect
         self.gui.listen = self.listen
@@ -41,10 +41,11 @@ class App:
         self.gui.RSA = self.RSA
         self.gui.send_message = self.send_message
         self.gui.set_port = self.set_port
-        self.gui.on_address_selected = self.on_address_selected
         self.gui.connect_relay = self.connect_relay
+        self.gui.list_users = self.list_users
+        self.gui.request_chat = self.request_chat
+        self.gui.show_key = self.show_key
         self.gui.my_port_entry.insert(0, str(self.port))
-        self.update_self_address()
 
     def listen(self, timeout=30):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -85,7 +86,6 @@ class App:
                 self.root.after(0, lambda: self.gui.set_status(True))
                 self.status = True
                 self.root.after(0, lambda: self.gui.set_disconnect_mode())
-                self.root.after(0, lambda: self.save_address(host, port))
                 self.receive_loop()
             except Exception as e:
                 self.root.after(0, lambda: self.gui.log(f"Connection failed: {e}"))
@@ -99,6 +99,10 @@ class App:
             self.gui.log("Enter relay host and port")
             return
         port = int(port_str)
+        name = self.gui.name_entry.get().strip()
+        if not name:
+            self.gui.log("Enter a name before connecting to relay")
+            return
 
         def do_connect():
             try:
@@ -106,6 +110,12 @@ class App:
                 self.conn.connect((host, port))
                 self.running = True
                 self.root.after(0, lambda: self.gui.log(f"Connected to relay {host}:{port}"))
+
+                # Send REGISTER with name
+                register_msg = f"REGISTER {name}\n"
+                self.conn.send(register_msg.encode("utf-8"))
+                self.root.after(0, lambda: self.gui.log(f"Sent REGISTER as '{name}'"))
+
                 self.root.after(0, lambda: self.gui.set_status(True))
                 self.status = True
                 self.root.after(0, lambda: self.gui.set_disconnect_mode())
@@ -115,13 +125,22 @@ class App:
 
         threading.Thread(target=do_connect, daemon=True).start()
 
-    def save_address(self, ip, port):
-        for name, (saved_ip, saved_port) in self.friends.items():
-            if saved_ip == ip and saved_port == port:
-                return
-        self.friend_counter += 1
-        name = f"Friend{self.friend_counter}"
-        self.add_friend(name, ip, port)
+    def list_users(self):
+        if not self.conn or not self.status:
+            self.gui.log("Not connected to server")
+            return
+        self.conn.send(b"LIST\n")
+
+    def request_chat(self):
+        if not self.conn or not self.status:
+            self.gui.log("Not connected to server")
+            return
+        target = self.gui.users_combo.get()
+        if not target:
+            self.gui.log("Select a user to chat with")
+            return
+        self.conn.send(f"CHAT_REQUEST {target}\n".encode("utf-8"))
+        self.gui.log(f"Requesting chat with {target}...")
 
     def receive_loop(self):
         while self.running:
@@ -129,16 +148,43 @@ class App:
                 data = self.conn.recv(4096)
                 if not data:
                     break
-                msg = data.decode("utf-8")
+                msg = data.decode("utf-8").strip()
 
                 if msg.startswith("CRYPTO:"):
                     crypto_msg = json.loads(msg[7:])
                     self.handle_protocol_msg(crypto_msg)
+                elif msg == "REGISTERED":
+                    self.root.after(0, lambda: self.gui.log("Registered with server"))
+                elif msg.startswith("ERROR "):
+                    error_msg = msg[6:]
+                    self.root.after(0, lambda m=error_msg: self.gui.log(f"Server error: {m}"))
+                elif msg.startswith("USERS "):
+                    users_str = msg[6:]
+                    users = [u.strip() for u in users_str.split(",") if u.strip()]
+                    self.root.after(0, lambda u=users: self.gui.update_users(u))
+                    self.root.after(
+                        0, lambda u=users: self.gui.log(f"Online users: {', '.join(u)}")
+                    )
+                elif msg.startswith("CHAT_STARTED "):
+                    partner = msg[13:].strip()
+                    self.chat_partner = partner
+                    self.root.after(0, lambda p=partner: self.gui.log(f"Chat started with {p}"))
+                elif msg == "CHAT_ENDED":
+                    partner = self.chat_partner
+                    self.chat_partner = None
+                    self.root.after(0, lambda p=partner: self.gui.log(f"Chat ended with {p}"))
+                    self.root.after(0, lambda: self.gui.set_listen_mode())
                 else:
-                  self.root.after(0, lambda m=msg: self.gui.log(f"Friend: {m}"))
+                    if self.chat_partner:
+                        self.root.after(
+                            0, lambda m=msg, p=self.chat_partner: self.gui.log(f"{p}: {m}")
+                        )
+                    else:
+                        self.root.after(0, lambda m=msg: self.gui.log(f"Friend: {m}"))
             except:
                 break
         self.running = False
+        self.chat_partner = None
         self.root.after(0, lambda: self.gui.log("Disconnected"))
         self.root.after(0, lambda: self.gui.set_status(False))
         self.status = False
@@ -160,17 +206,24 @@ class App:
         self.gui.set_listen_mode()
 
     def disconnect(self):
-        self.running = False
-        if self.conn:
-            self.conn.close()
-            self.conn = None
-        if self.sock:
-            self.sock.close()
-            self.sock = None
-        self.gui.log("Disconnected")
-        self.gui.set_status(False)
-        self.status = False
-        self.gui.set_listen_mode()
+        """Disconnect from the current chat only, stay connected to relay if applicable"""
+        if self.chat_partner and self.conn:
+            # We're in a chat via relay - just end the chat, stay connected
+            self.conn.send(b"END_CHAT\n")
+            self.gui.log(f"Ending chat with {self.chat_partner}...")
+        else:
+            # Direct P2P connection - fully disconnect
+            self.running = False
+            if self.conn:
+                self.conn.close()
+                self.conn = None
+            if self.sock:
+                self.sock.close()
+                self.sock = None
+            self.gui.log("Disconnected")
+            self.gui.set_status(False)
+            self.status = False
+            self.gui.set_listen_mode()
 
     def set_port(self):
         try:
@@ -208,7 +261,7 @@ class App:
             self.sock.close()
         self.root.destroy()
 
-    #Perform the DHE key exchange
+    # Perform the DHE key exchange
     def DHE(self):
         if not self.status:
             self.gui.log("Not Connected")
@@ -223,30 +276,19 @@ class App:
 
         self.dhe_private = Cryptography.generate_DHE_key(self.dhe_p)
 
-        A = Cryptography.compute_public_key( g, self.dhe_private, self.dhe_p)
-
-        # Write private key to Shared Keys section
-        self.gui.keys_display.config(state=tk.NORMAL)
-        self.gui.keys_display.delete(1.0, tk.END)
-        self.gui.keys_display.insert(tk.END, f"a = {hex(self.dhe_private)}\n")
-        self.gui.keys_display.config(state=tk.DISABLED)
+        A = Cryptography.compute_public_key(g, self.dhe_private, self.dhe_p)
 
         self.gui.log(f"a = {self.dhe_private}")
         self.gui.log("\n")
 
-        msg = json.dumps({
-            "type": "DHE_INIT",
-            "p": str(self.dhe_p),
-            "g": g,
-            "A": str(A)
-        })
+        msg = json.dumps({"type": "DHE_INIT", "p": str(self.dhe_p), "g": g, "A": str(A)})
 
         self.conn.send(f"CRYPTO:{msg}".encode("utf-8"))
         self.gui.log(f"send DHE init. Waiting for response")
         self.gui.log("\n")
 
     def handle_protocol_msg(self, msg):
-        #==================== DHE =======================
+        # ==================== DHE =======================
         if msg["type"] == "DHE_INIT":
             p = int(msg["p"])
             g = msg["g"]
@@ -258,67 +300,53 @@ class App:
             # Compute Shared secret
             shared = Cryptography.compute_shared_secret(A, b, p)
             # If AES then hash
-            self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
+            self.shared_secret = hashlib.sha256(shared.to_bytes(256, "big")).digest()
 
-            def update_keys():
-                self.gui.keys_display.config(state=tk.NORMAL)
-                self.gui.keys_display.delete(1.0, tk.END)
-                self.gui.keys_display.insert(tk.END, f"b = {hex(b)}\n")
-                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
-                self.gui.keys_display.config(state=tk.DISABLED)
-            self.root.after(0, update_keys)
+            # Store key and update GUI
+            partner = self.chat_partner or "Peer"
+            self.keys[partner] = {"method": "DHE", "shared": self.shared_secret.hex()}
+            self.root.after(0, lambda p=partner: self.gui.add_key(p, "DHE"))
 
             # Send reply with our public key
-            reply = json.dumps({
-                "type": "DHE_REPLY",
-                "B": str(B)
-            })
+            reply = json.dumps({"type": "DHE_REPLY", "B": str(B)})
             self.conn.send(f"CRYPTO:{reply}".encode("utf-8"))
             self.root.after(0, lambda: self.gui.log("DHE complete (responder)"))
         elif msg["type"] == "DHE_REPLY":
             B = int(msg["B"])
             shared = Cryptography.compute_shared_secret(B, self.dhe_private, self.dhe_p)
-            self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
+            self.shared_secret = hashlib.sha256(shared.to_bytes(256, "big")).digest()
 
-            def update_keys():
-                self.gui.keys_display.config(state=tk.NORMAL)
-                self.gui.keys_display.delete(1.0, tk.END)
-                self.gui.keys_display.insert(tk.END, f"a = {hex(self.dhe_private)}\n")
-                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
-                self.gui.keys_display.config(state=tk.DISABLED)
-            self.root.after(0, update_keys)
+            # Store key and update GUI
+            partner = self.chat_partner or "Peer"
+            self.keys[partner] = {"method": "DHE", "shared": self.shared_secret.hex()}
+            self.root.after(0, lambda p=partner: self.gui.add_key(p, "DHE"))
             self.root.after(0, lambda: self.gui.log("DHE complete (initiator)"))
-        
 
         #  ==================== RSA =======================
-        elif msg["type"]=="RSA_PUBKEY":
+        elif msg["type"] == "RSA_PUBKEY":
             n, e = int(msg["n"]), msg["e"]
-            secret = secrets.randbelow(n-1)
+            secret = secrets.randbelow(n - 1)
             c = pow(secret, e, n)
             reply = f"CRYPTO:{json.dumps({'type': 'RSA_SECRET', 'c': str(c)})}"
             self.conn.send(reply.encode())
-            self.shared_secret = hashlib.sha256(secret.to_bytes(256, 'big')).digest()
+            self.shared_secret = hashlib.sha256(secret.to_bytes(256, "big")).digest()
 
-            def update_keys():
-                self.gui.keys_display.config(state=tk.NORMAL)
-                self.gui.keys_display.delete(1.0, tk.END)
-                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
-                self.gui.keys_display.config(state=tk.DISABLED)
-            self.root.after(0, update_keys)
+            # Store key and update GUI
+            partner = self.chat_partner or "Peer"
+            self.keys[partner] = {"method": "RSA", "shared": self.shared_secret.hex()}
+            self.root.after(0, lambda p=partner: self.gui.add_key(p, "RSA"))
             self.root.after(0, lambda: self.gui.log("RSA complete (responder)"))
 
         elif msg["type"] == "RSA_SECRET":
             c = int(msg["c"])
             n, d = self.rsa_private
             secret = pow(c, d, n)
-            self.shared_secret = hashlib.sha256(secret.to_bytes(256, 'big')).digest()
+            self.shared_secret = hashlib.sha256(secret.to_bytes(256, "big")).digest()
 
-            def update_keys():
-                self.gui.keys_display.config(state=tk.NORMAL)
-                self.gui.keys_display.delete(1.0, tk.END)
-                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
-                self.gui.keys_display.config(state=tk.DISABLED)
-            self.root.after(0, update_keys)
+            # Store key and update GUI
+            partner = self.chat_partner or "Peer"
+            self.keys[partner] = {"method": "RSA", "shared": self.shared_secret.hex()}
+            self.root.after(0, lambda p=partner: self.gui.add_key(p, "RSA"))
             self.root.after(0, lambda: self.gui.log("RSA complete (initiator)"))
 
     def RSA(self):
@@ -335,37 +363,15 @@ class App:
         self.conn.send(msg.encode())
         self.gui.log("Sent RSA public key. Waiting for response...")
 
-
-    def update_self_address(self):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-        except:
-            local_ip = "127.0.0.1"
-
-        self.friends["self"] = [local_ip, self.port]
-        self.update_address_dropdown()
-
-    def add_friend(self, name, ip, port):
-        self.friends[name] = [ip, port]
-        self.update_address_dropdown()
-
-    def update_address_dropdown(self):
-        names = list(self.friends.keys())
-        self.gui.addr_combo["values"] = names
-        if names and not self.gui.addr_combo.get():
-            self.gui.addr_combo.set(names[0])
-
-    def on_address_selected(self):
-        name = self.gui.addr_combo.get()
-        if name and name in self.friends:
-            ip, port = self.friends[name]
-            self.gui.host_entry.delete(0, tk.END)
-            self.gui.host_entry.insert(0, ip)
-            self.gui.port_entry.delete(0, tk.END)
-            self.gui.port_entry.insert(0, str(port))
+    def show_key(self, entry):
+        """Show full key details in chat when a key entry is clicked"""
+        # Parse entry format: "PartnerName (METHOD)"
+        if " (" in entry and entry.endswith(")"):
+            partner = entry.rsplit(" (", 1)[0]
+            if partner in self.keys:
+                key_info = self.keys[partner]
+                self.gui.log(f"Key for {partner} ({key_info['method']}):")
+                self.gui.log(f"  shared = {key_info['shared']}")
 
     def add_to_chat(self, text, sender=None, encryption=None, debug=False):
         line = ""
