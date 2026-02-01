@@ -9,7 +9,7 @@ description = "Christopher Davissons lab4 P2P with relay server"
 requires-python = ">=3.10"
 authors = [{name = "Christopher Davisson" , email = "cdavisson58@ewu.edu"}]
 
-dependencies = [] #NONE!! Depend on noone
+dependencies = ["textual>=0.40.0"]
 
 [project.scripts]
 chat = "control:main"

@@ -20,7 +20,7 @@ def main():
     if args.mode in ("server", "s"):
         from server.server import run_server
 
-        run_server(args.port)
+        run_server(args.port, args.headless)
     elif args.mode in ("client", "c"):
         if args.tui:
             print("TUI mode not implemented")

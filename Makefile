@@ -1,10 +1,12 @@
-.PHONY: server chat1 chat2 all
+.PHONY: server server-headless chat chat2 all
 
 server:
 	python -m control server -p 1234
 
+server-headless:
+	python -m control server -p 1234 --headless
+
 chat:
-	python -m control client
 	python -m control client
 
 chat2:
@@ -15,3 +17,4 @@ all:
 	timeout /t 1 >nul
 	start cmd /k "python -m control client"
 	start cmd /k "python -m control client"
+
