@@ -18,9 +18,9 @@ def main():
     args = parser.parse_args()
 
     if args.mode in ("server", "s"):
-        from server.server import server
+        from server.server import run_server
 
-        server.run_server()
+        run_server(args.port)
     elif args.mode in ("client", "c"):
         if args.tui:
             print("TUI mode not implemented")

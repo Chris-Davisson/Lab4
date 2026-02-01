@@ -68,7 +68,6 @@ class Cryptography:
             if Cryptography.miller_rabin(n):
                 return n
 
-
     @staticmethod
     def generate_DHE_key(p):
         return secrets.randbelow(((p-1) //2 ) -3 ) + 2
@@ -90,3 +89,15 @@ class Cryptography:
         e = 65537
         d = Cryptography.mod_inverse(e, phi)
         return (n, e), (n, d)  # public, private
+
+    @staticmethod
+    def get_dh_params(bits=2048):
+        if(bits == 2048):
+            return Cryptography.DH_PRIME, Cryptography.DH_GENERATOR
+        p = Cryptography.generate_prime(bits)
+        return p,2
+
+
+
+
+

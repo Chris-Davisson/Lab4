@@ -15,6 +15,9 @@ class gui:
         self.DHE = None
         self.RSA = None
         self.send_message = None
+        self.connect_relay = None
+
+        self.dhe_size = None
 
         header = ttk.Frame(root)
         header.pack(fill=tk.X, padx=5, pady=5)
@@ -43,6 +46,10 @@ class gui:
             header, text="DHE", command=lambda: self.DHE() if self.DHE else None
         )
         self.DHE_btn.pack(side=tk.LEFT, padx=2)
+
+        self.dhe_size = ttk.Combobox(header, values=["32", "64", "2048"], width=6)
+        self.dhe_size.set("2048") # Default
+        self.dhe_size.pack(side=tk.LEFT, padx=2)
 
         self.RSA_btn = ttk.Button(
             header, text="RSA", command=lambda: self.RSA() if self.RSA else None
@@ -99,6 +106,11 @@ class gui:
         ttk.Label(relay_frame, text="Port:").pack(side=tk.LEFT, padx=(5, 2), pady=5)
         self.relay_port_entry = tk.Entry(relay_frame, width=6)
         self.relay_port_entry.pack(side=tk.LEFT, padx=2, pady=5)
+
+        self.relay_btn = ttk.Button(
+            relay_frame, text="Relay", command=lambda: self.connect_relay() if self.connect_relay else None
+        )
+        self.relay_btn.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Saved addresses section
         addr_frame = ttk.LabelFrame(left_panel, text="Saved Addresses")

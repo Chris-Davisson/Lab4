@@ -42,6 +42,7 @@ class App:
         self.gui.send_message = self.send_message
         self.gui.set_port = self.set_port
         self.gui.on_address_selected = self.on_address_selected
+        self.gui.connect_relay = self.connect_relay
         self.gui.my_port_entry.insert(0, str(self.port))
         self.update_self_address()
 
@@ -88,6 +89,29 @@ class App:
                 self.receive_loop()
             except Exception as e:
                 self.root.after(0, lambda: self.gui.log(f"Connection failed: {e}"))
+
+        threading.Thread(target=do_connect, daemon=True).start()
+
+    def connect_relay(self):
+        host = self.gui.relay_host_entry.get()
+        port_str = self.gui.relay_port_entry.get()
+        if not host or not port_str:
+            self.gui.log("Enter relay host and port")
+            return
+        port = int(port_str)
+
+        def do_connect():
+            try:
+                self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.conn.connect((host, port))
+                self.running = True
+                self.root.after(0, lambda: self.gui.log(f"Connected to relay {host}:{port}"))
+                self.root.after(0, lambda: self.gui.set_status(True))
+                self.status = True
+                self.root.after(0, lambda: self.gui.set_disconnect_mode())
+                self.receive_loop()
+            except Exception as e:
+                self.root.after(0, lambda: self.gui.log(f"Relay connection failed: {e}"))
 
         threading.Thread(target=do_connect, daemon=True).start()
 
@@ -185,15 +209,17 @@ class App:
         self.root.destroy()
 
     #Perform the DHE key exchange
-    def DHE(self, n = 2048):
+    def DHE(self):
         if not self.status:
             self.gui.log("Not Connected")
             return
 
         self.gui.log("Begining DHE key exchange...")
 
-        self.dhe_p = Cryptography.DH_PRIME
-        g = Cryptography.DH_GENERATOR
+        bits = int(self.gui.dhe_size.get())
+        self.dhe_p, g = Cryptography.get_dh_params(bits)
+        # self.dhe_p = Cryptography.DH_PRIME
+        # g = Cryptography.DH_GENERATOR
 
         self.dhe_private = Cryptography.generate_DHE_key(self.dhe_p)
 
