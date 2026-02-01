@@ -5,6 +5,7 @@ import tkinter as tk
 from chat.gui import gui
 from chat.crypto import Cryptography
 import hashlib
+import json
 
 
 class App:
@@ -13,9 +14,20 @@ class App:
         self.gui = gui(self.root)
         self.port = random.randint(10000, 65535)
         self.friends = {}
+        self.friend_counter = 0
+        self.running = False
         self.messages = {}
+
+        
         self.crypto = None
-        self.status = False
+        self.status = False        
+        self.dhe_private = None
+        self.dhe_p = None
+        self.sock = None
+        self.conn = None
+        self.shared_secret = None
+
+
         self.gui.connect = self.connect
         self.gui.listen = self.listen
         self.gui.cancel_listen = self.cancel_listen
@@ -28,12 +40,6 @@ class App:
         self.gui.send_message = self.send_message
         self.gui.set_port = self.set_port
         self.gui.on_address_selected = self.on_address_selected
-
-        self.sock = None
-        self.conn = None
-        self.running = False
-        self.friend_counter = 0
-
         self.gui.my_port_entry.insert(0, str(self.port))
         self.update_self_address()
 
@@ -98,7 +104,12 @@ class App:
                 if not data:
                     break
                 msg = data.decode("utf-8")
-                self.root.after(0, lambda m=msg: self.gui.log(f"Friend: {m}"))
+
+                if msg.startswith("CRYPTO:"):
+                    crypto_msg = json.loads(msg[7:])
+                    self.handle_protocol_msg(crypto_msg)
+                else:
+                  self.root.after(0, lambda m=msg: self.gui.log(f"Friend: {m}"))
             except:
                 break
         self.running = False
@@ -174,31 +185,61 @@ class App:
     #Perform the DHE key exchange
     def DHE(self, n = 2048):
         if not self.status:
-            self.gui.log("You have ")
-        self.gui.log("Begining DHE key exchange...")
-        p = None
-        g = None
-        if n == 2048:
-            p = Cryptography.DH_PRIME
-            g = Cryptography.DH_GENERATOR
-            self.gui.log(f"P = hard coded 2048 bit\ng = {Cryptography.DH_GENERATOR}")
-            self.gui.log("\n")
-        else:
-            p = Cryptography.generate_prime(11) # ToDo. repace 11 with your choice of bits
-            g = 2
-            self.gui.log(f"P = {p}\ng = {g}")
-            self.gui.log("\n")
-        a = Cryptography.generate_DHE_key(p)
-        public_key = Cryptography.compute_public_key(g , p , a)
+            self.gui.log("Not Connected")
+            return
 
-        self.gui.log(f"a = {a}")
+        self.gui.log("Begining DHE key exchange...")
+
+        self.dhe_p = Cryptography.DH_PRIME
+        g = Cryptography.DH_GENERATOR
+
+        self.dhe_private = Cryptography.generate_DHE_key(self.dhe_p)
+
+        A = Cryptography.compute_public_key( g, self.dhe_private, self.dhe_p)
+
+        self.gui.log(f"a = {self.dhe_private}")
         self.gui.log("\n")
 
+        msg = json.dumps({
+            "type": "DHE_INIT",
+            "p": str(self.dhe_p),
+            "g": g,
+            "A": str(A)
+        })
 
+        self.conn.send(f"CRYPTO:{msg}".encode("utf-8"))
+        self.gui.log(f"send DHE init. Waiting for response")
+        self.gui.log("\n")
 
+    def handle_protocol_msg(self, msg):
+        #DHE
+        if msg["type"] == "DHE_INIT":
+            p = int(msg["p"])
+            g = msg["g"]
+            A = int(msg["A"])
 
-        
+            b = Cryptography.generate_DHE_key(p)
+            B = Cryptography.compute_public_key(g, b, p)
 
+            # Compute Shared secret
+            shared = Cryptography.compute_shared_secret(A, b, p)
+            # If AES then hash
+            self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
+
+            # Send reply with our public key
+            reply = json.dumps({
+                "type": "DHE_REPLY",
+                "B": str(B)
+            })
+            self.conn.send(f"CRYPTO:{reply}".encode("utf-8"))
+            self.root.after(0, lambda: self.gui.log("DHE complete (responder)"))
+        elif msg["type"] == "DHE_REPLY":
+            B = int(msg["B"])
+            shared = Cryptography.compute_shared_secret(B, self.dhe_private, self.dhe_p)
+            self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
+            self.root.after(0, lambda: self.gui.log("DHE complete (initiator)"))
+
+        #RSA
 
     def RSA(self):
         print()

@@ -20,14 +20,19 @@ class Cryptography:
     16)
     DH_GENERATOR = 2
 
-    def generate_prime(self, n):
+    @staticmethod
+    def generate_prime(n):
         return 1
     
-    def generate_DHE_key(self, p):
+
+    @staticmethod
+    def generate_DHE_key(p):
         return secrets.randbelow(((p-1) //2 ) -3 ) + 2
     
-    def compute_public_key(g, p, a):
+    @staticmethod
+    def compute_public_key(g, a, p):
         return pow(g, a, p) # g to the power a mod p
     
-    def compute_shared_secret(x, a, p):
+    @staticmethod
+    def compute_shared_secret( x, a, p):
         return pow(x, a, p)
