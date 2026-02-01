@@ -20,10 +20,54 @@ class Cryptography:
     16)
     DH_GENERATOR = 2
 
+    # I had to look this up. Both miller_rabin & mod_inverse are taken from www.geeksforgeeks.org
     @staticmethod
-    def generate_prime(n):
-        return 1
+    def miller_rabin(n, rounds=40):
+        if n < 2:
+            return False
+        if n == 2 or n == 3:
+            return True
+        if n % 2 == 0:
+            return False
+        
+        r, d = 0, n - 1
+        while d % 2 == 0:
+            r += 1
+            d //= 2
+        
+        for _ in range(rounds):
+            a = secrets.randbelow(n - 3) + 2
+            x = pow(a, d, n)
+            if x == 1 or x == n - 1:
+                continue
+            for _ in range(r - 1):
+                x = pow(x, 2, n)
+                if x == n - 1:
+                    break
+            else:
+                return False
+        return True
+
+    @staticmethod
+    def mod_inverse(e, phi):
+        def egcd(a, b):
+            if a == 0:
+                return b, 0, 1
+            g, x, y = egcd(b % a, a)
+            return g, y - (b // a) * x, x
+        
+        g, x, _ = egcd(e % phi, phi)
+        if g != 1:
+            raise ValueError("No modular inverse")
+        return x % phi
     
+    @staticmethod
+    def generate_prime(bits):
+        while True:
+            n = secrets.randbits(bits) | (1 << (bits - 1)) | 1  # MSB and LSB set
+            if Cryptography.miller_rabin(n):
+                return n
+
 
     @staticmethod
     def generate_DHE_key(p):
@@ -36,3 +80,13 @@ class Cryptography:
     @staticmethod
     def compute_shared_secret( x, a, p):
         return pow(x, a, p)
+    
+    @staticmethod
+    def generate_rsa_keypair(bits=1024):
+        p = Cryptography.generate_prime(bits // 2)
+        q = Cryptography.generate_prime(bits // 2)
+        n = p * q
+        phi = (p - 1) * (q - 1)
+        e = 65537
+        d = Cryptography.mod_inverse(e, phi)
+        return (n, e), (n, d)  # public, private

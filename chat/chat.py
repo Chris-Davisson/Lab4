@@ -6,6 +6,7 @@ from chat.gui import gui
 from chat.crypto import Cryptography
 import hashlib
 import json
+import secrets
 
 
 class App:
@@ -26,6 +27,7 @@ class App:
         self.sock = None
         self.conn = None
         self.shared_secret = None
+        self.rsa_private = None
 
 
         self.gui.connect = self.connect
@@ -197,6 +199,12 @@ class App:
 
         A = Cryptography.compute_public_key( g, self.dhe_private, self.dhe_p)
 
+        # Write private key to Shared Keys section
+        self.gui.keys_display.config(state=tk.NORMAL)
+        self.gui.keys_display.delete(1.0, tk.END)
+        self.gui.keys_display.insert(tk.END, f"a = {hex(self.dhe_private)}\n")
+        self.gui.keys_display.config(state=tk.DISABLED)
+
         self.gui.log(f"a = {self.dhe_private}")
         self.gui.log("\n")
 
@@ -212,7 +220,7 @@ class App:
         self.gui.log("\n")
 
     def handle_protocol_msg(self, msg):
-        #DHE
+        #==================== DHE =======================
         if msg["type"] == "DHE_INIT":
             p = int(msg["p"])
             g = msg["g"]
@@ -226,6 +234,14 @@ class App:
             # If AES then hash
             self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
 
+            def update_keys():
+                self.gui.keys_display.config(state=tk.NORMAL)
+                self.gui.keys_display.delete(1.0, tk.END)
+                self.gui.keys_display.insert(tk.END, f"b = {hex(b)}\n")
+                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
+                self.gui.keys_display.config(state=tk.DISABLED)
+            self.root.after(0, update_keys)
+
             # Send reply with our public key
             reply = json.dumps({
                 "type": "DHE_REPLY",
@@ -237,12 +253,62 @@ class App:
             B = int(msg["B"])
             shared = Cryptography.compute_shared_secret(B, self.dhe_private, self.dhe_p)
             self.shared_secret = hashlib.sha256(shared.to_bytes(256, 'big')).digest()
-            self.root.after(0, lambda: self.gui.log("DHE complete (initiator)"))
 
-        #RSA
+            def update_keys():
+                self.gui.keys_display.config(state=tk.NORMAL)
+                self.gui.keys_display.delete(1.0, tk.END)
+                self.gui.keys_display.insert(tk.END, f"a = {hex(self.dhe_private)}\n")
+                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
+                self.gui.keys_display.config(state=tk.DISABLED)
+            self.root.after(0, update_keys)
+            self.root.after(0, lambda: self.gui.log("DHE complete (initiator)"))
+        
+
+        #  ==================== RSA =======================
+        elif msg["type"]=="RSA_PUBKEY":
+            n, e = int(msg["n"]), msg["e"]
+            secret = secrets.randbelow(n-1)
+            c = pow(secret, e, n)
+            reply = f"CRYPTO:{json.dumps({'type': 'RSA_SECRET', 'c': str(c)})}"
+            self.conn.send(reply.encode())
+            self.shared_secret = hashlib.sha256(secret.to_bytes(256, 'big')).digest()
+
+            def update_keys():
+                self.gui.keys_display.config(state=tk.NORMAL)
+                self.gui.keys_display.delete(1.0, tk.END)
+                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
+                self.gui.keys_display.config(state=tk.DISABLED)
+            self.root.after(0, update_keys)
+            self.root.after(0, lambda: self.gui.log("RSA complete (responder)"))
+
+        elif msg["type"] == "RSA_SECRET":
+            c = int(msg["c"])
+            n, d = self.rsa_private
+            secret = pow(c, d, n)
+            self.shared_secret = hashlib.sha256(secret.to_bytes(256, 'big')).digest()
+
+            def update_keys():
+                self.gui.keys_display.config(state=tk.NORMAL)
+                self.gui.keys_display.delete(1.0, tk.END)
+                self.gui.keys_display.insert(tk.END, f"shared = {self.shared_secret.hex()}\n")
+                self.gui.keys_display.config(state=tk.DISABLED)
+            self.root.after(0, update_keys)
+            self.root.after(0, lambda: self.gui.log("RSA complete (initiator)"))
 
     def RSA(self):
-        print()
+        if not self.status:
+            self.gui.log("Not Connected")
+            return
+
+        self.gui.log("Beginning RSA key exchange...")
+
+        public, private = Cryptography.generate_rsa_keypair(bits=1024)
+        self.rsa_private = private
+
+        msg = f"CRYPTO:{json.dumps({'type': 'RSA_PUBKEY', 'n': str(public[0]), 'e': public[1]})}"
+        self.conn.send(msg.encode())
+        self.gui.log("Sent RSA public key. Waiting for response...")
+
 
     def update_self_address(self):
         try:
