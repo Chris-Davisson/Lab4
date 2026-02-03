@@ -227,7 +227,6 @@ class App:
                     if msg:
                         self._process_message(msg)
 
-                # Handle messages without newline (for backwards compatibility)
                 if buffer and "\n" not in buffer:
                     stripped = buffer.strip()
                     if stripped:
@@ -273,7 +272,6 @@ class App:
 
     def disconnect(self):
         if self.chat_partner and self.conn:
-            # We're in a chat via relay, just end the chat, stay connected
             try:
                 self.conn.send(b"END_CHAT\n")
             except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
