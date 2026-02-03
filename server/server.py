@@ -1,8 +1,8 @@
 import socket
 import threading
-import msvcrt
+# import msvcrt
 import sys
-import system
+# import system
 
 class Server:
     def __init__(self, port=9000):
