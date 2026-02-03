@@ -17,6 +17,13 @@ A P2P chat application with DHE and RSA key exchange. Can work locally (pure P2P
 
 ### Client (GUI)
 
+``` bash
+Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+
 ```bash
 python -m control client
 ```
@@ -35,11 +42,6 @@ python -m control server -p 1234
 
 Replace 1234 with whatever port you want.
 
-### Quick test
-
-```bash
-make all
-```
 
 This starts a server and two clients.
 

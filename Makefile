@@ -1,4 +1,4 @@
-.PHONY: server chat chat2 all
+.PHONY: server chat setup-windows
 
 server:
 	python -m control server -p 1234
@@ -6,3 +6,5 @@ server:
 chat:
 	python -m control client
 
+setup-windows:
+	setup.bat
