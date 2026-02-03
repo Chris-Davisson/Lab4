@@ -2,7 +2,7 @@ import socket
 import threading
 import msvcrt
 import sys
-
+import system
 
 class Server:
     def __init__(self, port=9000):
@@ -159,12 +159,14 @@ class Server:
 
     def keyboard_listener(self):
         while self.running:
-            if msvcrt.kbhit():
-                key = msvcrt.getch().decode("utf-8", errors="ignore").upper()
+            try:
+                key = input().strip().upper()
                 if key == "Q":
-                    print("\nShutting down server...")
+                    print("\nShutting down")
                     self.running = False
                     break
+            except EOFError:
+                break
 
     def shutdown(self):
         with self.lock:
