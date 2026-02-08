@@ -385,20 +385,15 @@ class App:
             reply = f"CRYPTO:{json.dumps({'type': 'RSA_SECRET', 'c': str(c)})}"
             self.conn.send(reply.encode())
             self.shared_secret = hashlib.sha256(secret.to_bytes(256, "big")).digest()
-
-            # Store key and update GUI
             partner = self.chat_partner or "Peer"
             self.keys[partner] = {"method": "RSA", "shared": self.shared_secret.hex()}
             self.root.after(0, lambda p=partner: self.gui.add_key(p, "RSA"))
             self.root.after(0, lambda: self.gui.log("RSA complete (responder)"))
-
         elif msg["type"] == "RSA_SECRET":
             c = int(msg["c"])
             n, d = self.rsa_private
             secret = pow(c, d, n)
             self.shared_secret = hashlib.sha256(secret.to_bytes(256, "big")).digest()
-
-            # Store key and update GUI
             partner = self.chat_partner or "Peer"
             self.keys[partner] = {"method": "RSA", "shared": self.shared_secret.hex()}
             self.root.after(0, lambda p=partner: self.gui.add_key(p, "RSA"))
